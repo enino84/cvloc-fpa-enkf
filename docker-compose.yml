@@ -1,0 +1,107 @@
+# Single container, whole suite:      docker compose up experiments
+# Four shards in parallel:            docker compose --profile shards up
+# One shard alone:                    SHARD_INDEX=2 docker compose up shard
+# Merge afterwards:                   docker compose run --rm merge
+#
+# Each shard writes metrics_shard<i>.csv into the same results directory and
+# keeps its own log stream, so a failed shard can be rerun on its own without
+# touching the others. Run exp00_tuning once before sharding: it writes
+# frozen_params.json, which every other experiment reads.
+
+x-common: &common
+  build: .
+  image: cvloc-fpa-enkf:latest
+  environment: &env
+    SCALE: ${SCALE:-smoke}
+    RESULTS_DIR: /work/results
+    PYTHONHASHSEED: "0"
+    OMP_NUM_THREADS: "1"
+    OPENBLAS_NUM_THREADS: "1"
+    MKL_NUM_THREADS: "1"
+  volumes:
+    - ./results:/work/results
+    - ./paper:/work/paper
+
+services:
+
+  experiments:
+    <<: *common
+    container_name: cvloc-fpa-enkf
+    command: bash /work/scripts/run_all.sh
+
+  tuning:
+    <<: *common
+    container_name: cvl-tuning
+    command: python /work/experiments/exp00_tuning.py
+
+  shard:
+    <<: *common
+    environment:
+      <<: *env
+      SHARD_INDEX: ${SHARD_INDEX:-0}
+      SHARD_COUNT: ${SHARD_COUNT:-4}
+      METHODS: ${METHODS:-}
+      EXPERIMENTS: ${EXPERIMENTS:-}
+    command: bash /work/scripts/run_all.sh
+
+  shard0:
+    <<: *common
+    container_name: cvl-shard0
+    profiles: ["shards"]
+    environment:
+      <<: *env
+      SHARD_INDEX: "0"
+      SHARD_COUNT: ${SHARD_COUNT:-4}
+    command: bash /work/scripts/run_all.sh
+
+  shard1:
+    <<: *common
+    container_name: cvl-shard1
+    profiles: ["shards"]
+    environment:
+      <<: *env
+      SHARD_INDEX: "1"
+      SHARD_COUNT: ${SHARD_COUNT:-4}
+    command: bash /work/scripts/run_all.sh
+
+  shard2:
+    <<: *common
+    container_name: cvl-shard2
+    profiles: ["shards"]
+    environment:
+      <<: *env
+      SHARD_INDEX: "2"
+      SHARD_COUNT: ${SHARD_COUNT:-4}
+    command: bash /work/scripts/run_all.sh
+
+  shard3:
+    <<: *common
+    container_name: cvl-shard3
+    profiles: ["shards"]
+    environment:
+      <<: *env
+      SHARD_INDEX: "3"
+      SHARD_COUNT: ${SHARD_COUNT:-4}
+    command: bash /work/scripts/run_all.sh
+
+  merge:
+    <<: *common
+    container_name: cvl-merge
+    environment:
+      <<: *env
+      SHARD_COUNT: ${SHARD_COUNT:-4}
+    command: >
+      bash -lc "python /work/scripts/merge_shards.py $${SCALE} &&
+                python /work/scripts/make_tables.py $${SCALE}"
+
+  notebook:
+    <<: *common
+    container_name: cvloc-fpa-enkf-nb
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./results:/work/results
+      - ./notebooks:/work/notebooks
+    command: >
+      jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser
+      --allow-root --NotebookApp.token=''
