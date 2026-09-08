@@ -124,6 +124,18 @@ class Scale:
     # Modified Cholesky
     r_max: int = 12
     ridge_alpha: float = 0.01
+    # Augmented smoother (EXP-11). The ridge is scaled by the trace of X'X, so
+    # alpha is a fraction of the typical variance rather than an absolute
+    # constant; an absolute one does not regularize anything here and the
+    # augmented system goes singular where the predecessor count approaches
+    # the ensemble size.
+    smoother_alpha: float = 0.15
+    smoother_alphas: tuple = (0.05, 0.15, 0.3)
+    smoother_cycles: int = 60
+    smoother_burn: int = 20
+    smoother_runs: int = 4
+    smoother_budget: int = 300
+    smoother_r_filters: tuple = (2.0, 3.0, 6.0)
     # Multi-cycle (EXP-09), now the headline regime
     n_scenarios: int = 4
     schedules: tuple = ("fixed", "random")
@@ -155,7 +167,10 @@ class Scale:
 
 
 SCALES = {
-    "smoke": Scale(name="smoke", n_cycles=3, budget=30, sweep_points=20,
+    "smoke": Scale(name="smoke", smoother_cycles=15, smoother_burn=5,
+                   smoother_runs=1, smoother_budget=60,
+                   smoother_alphas=(0.15,), smoother_r_filters=(3.0,),
+                   n_cycles=3, budget=30, sweep_points=20,
                    obs_ratios=(1.0, 0.5), obs_stds=(0.5, 1.0),
                    ensemble_sizes=(10, 20), K_list=(1, 4, 40),
                    budgets=(15, 30), pop_sizes=(10, 20),
@@ -163,7 +178,10 @@ SCALES = {
                    fold_counts=(2, 10), n_repeats=2, n_tuning_cycles=2,
                    n_scenarios=2, smoothings=("none", "freeze"),
                    end_time=2.0),
-    "quick": Scale(name="quick", n_cycles=8, budget=60, sweep_points=40,
+    "quick": Scale(name="quick", smoother_cycles=40, smoother_burn=10,
+                   smoother_runs=2, smoother_budget=150,
+                   smoother_alphas=(0.15, 0.3), smoother_r_filters=(3.0, 6.0),
+                   n_cycles=8, budget=60, sweep_points=40,
                    obs_ratios=(1.0, 0.5, 0.25), obs_stds=(0.5, 1.0, 2.0),
                    ensemble_sizes=(5, 10, 20, 40), K_list=(1, 2, 4, 8, 40),
                    budgets=(20, 60, 160), pop_sizes=(10, 20, 50),

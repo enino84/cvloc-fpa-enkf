@@ -516,3 +516,118 @@ def test_analysis_records_state_means_per_cycle():
     a.xa_history.append(np.ones(40, dtype=np.float32))
     xb, xa = a.state_means
     assert xb.shape == (1, 40) and xa.shape == (1, 40)
+
+
+def test_boxplot_helper_survives_the_matplotlib_rename():
+    """matplotlib 3.9 renamed boxplot's `labels` to `tick_labels` and put
+    `vert` on the way out. The old spelling raises TypeError on a current
+    install, which crashed two experiments at the figure stage after their data
+    had already been written."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "experiments"))
+    from exp04_meta import _boxplot
+
+    fig, ax = plt.subplots()
+    bp = _boxplot(ax, [[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], ["a", "b"],
+                  patch_artist=True, widths=0.6)
+    assert len(bp["boxes"]) == 2
+    plt.close(fig)
+
+
+def test_run_all_uses_pipefail():
+    """`python3 script.py | tee log` reports tee's status, so without pipefail
+    a crashed experiment is announced as a success."""
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(here, "scripts", "run_all.sh")) as fh:
+        body = fh.read()
+    assert "set -o pipefail" in body
+
+
+# ----------------------------------------------------------------------
+# Augmented smoother
+# ----------------------------------------------------------------------
+def _pair(seed=0, n=40, N=20, frac=0.5):
+    from cvloc.model import Lorenz96CV, observation_network
+    from cvloc.smoother import AugmentedSmoother
+    rng = np.random.default_rng(seed)
+    m = Lorenz96CV(n=n, F=8.0, dt=0.01)
+    x = m.propagate(8.0 * np.ones(n) + 0.01 * rng.standard_normal(n),
+                    np.array([0.0, 20.0]))
+    S = m.free_run(x, 10.0, N + 2)
+    Xp = S[:, :N]
+    xt_p = m.propagate(S[:, N], np.array([0.0, 3.0]))
+    xt_n = m.propagate(xt_p, np.array([0.0, 0.1]))
+    Xn = np.stack([m.propagate(Xp[:, e], np.array([0.0, 0.1]))
+                   for e in range(N)], axis=1)
+    ip = observation_network(n, "uniform", rng, frac)
+    ino = observation_network(n, "uniform", rng, frac)
+    yp = xt_p[ip] + rng.standard_normal(ip.size)
+    yn = xt_n[ino] + rng.standard_normal(ino.size)
+    sm = AugmentedSmoother(Xp, Xn, ip, yp, np.ones(ip.size),
+                           ino, yn, np.ones(ino.size), alpha=0.15)
+    return sm, xt_p
+
+
+def test_ridge_penalty_scales_with_the_data():
+    """An absolute constant on the diagonal does not regularize anything when
+    X'X grows with the variance of the state. Scaling by the trace makes the
+    estimator invariant to that scale."""
+    from cvloc.smoother import ridge_solve
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((30, 4))
+    y = X @ np.array([1.0, -2.0, 0.5, 0.0]) + 0.1 * rng.standard_normal(30)
+    b1 = ridge_solve(X, y, 0.15)
+    c = 1000.0
+    b2 = ridge_solve(c * X, c * y, 0.15)
+    assert np.allclose(b1, b2, rtol=1e-8)
+
+
+def test_cross_block_is_what_gives_the_criterion_its_signal():
+    """Without temporal predecessors the criterion is flat: the k block cannot
+    feel the radius, and the whole construction collapses."""
+    sm_t, _ = _pair(seed=5)
+    grid = np.arange(1, 13, dtype=float)
+    with_t = np.array([sm_t.criterion(np.full(80, r)) for r in grid])
+
+    sm_t.temporal = False
+    without = np.array([sm_t.criterion(np.full(80, r)) for r in grid])
+
+    assert with_t.max() / with_t.min() > 1.05
+    assert without.max() / without.min() < with_t.max() / with_t.min()
+
+
+def test_every_radius_reaches_the_criterion():
+    """The defect of the held-out criterion was that the radii of unobserved
+    points did not enter it at all. Here they must."""
+    sm, _ = _pair(seed=6)
+    obs = set(sm.idx_prev.tolist())
+    unobs = [j for j in range(sm.n) if j not in obs]
+    assert unobs, "this test needs a partially observed network"
+    base = np.full(2 * sm.n, 3.0)
+    J0 = sm.criterion(base)
+    moved = base.copy()
+    moved[unobs] = 9.0
+    assert abs(sm.criterion(moved) - J0) > 1e-9
+
+
+def test_only_the_previous_time_is_assimilated():
+    """H must not touch the k block: if it did, the criterion would be scoring
+    observations the analysis had already used."""
+    sm, _ = _pair(seed=7)
+    assert np.allclose(sm.H[:, sm.n:], 0.0)
+    assert sm.H[:, :sm.n].sum() == sm.idx_prev.size
+
+
+def test_smoother_criterion_is_piecewise_constant_in_the_radius():
+    """The predecessor sets change only at integers."""
+    sm, _ = _pair(seed=8)
+    a = sm.criterion(np.full(80, 4.0))
+    b = sm.criterion(np.full(80, 4.7))
+    c = sm.criterion(np.full(80, 5.0))
+    assert a == pytest.approx(b)
+    assert a != pytest.approx(c)

@@ -34,6 +34,11 @@ services:
     container_name: cvl-tuning
     command: python /work/experiments/exp00_tuning.py
 
+  smoother:
+    <<: *common
+    container_name: cvl-smoother
+    command: python /work/experiments/exp11_smoother.py
+
   shard:
     <<: *common
     environment:

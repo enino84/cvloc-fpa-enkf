@@ -49,6 +49,26 @@ DESCRIPTION = ("Modified Cholesky parameterization: the radius as a "
                "predecessor set, on a discrete and multimodal landscape.")
 
 
+def _boxplot(ax, data, labels, **kw):
+    """Horizontal boxplot that works across matplotlib versions.
+
+    ``labels`` was renamed to ``tick_labels`` in matplotlib 3.9 and removed
+    outright afterwards, and ``vert`` is on the same path. Passing the old
+    names raises a TypeError on a current install, which is how this surfaced:
+    the figure crashed at the end of a run whose data had already been saved.
+    """
+    try:
+        return ax.boxplot(data, tick_labels=labels, orientation="horizontal",
+                          **kw)
+    except TypeError:
+        pass
+    try:
+        return ax.boxplot(data, tick_labels=labels, vert=False, **kw)
+    except TypeError:
+        return ax.boxplot(data, labels=labels, vert=False, **kw)
+
+
+
 def integer_sweep(chol_space, r_max, folds, fold_seed):
     """Exhaustive sweep over the integer radii, with truth and CV curves."""
     param = make_param("uniform", chol_space.n)
@@ -210,8 +230,7 @@ def main(scale_name=None):
         order = (sub.groupby("method")["J_gap_pct"].mean()
                  .sort_values().index.tolist())
         data = [sub[sub["method"] == m]["J_gap_pct"].values for m in order]
-        bp = ax.boxplot(data, labels=order, vert=False, patch_artist=True,
-                        widths=0.6)
+        bp = _boxplot(ax, data, order, patch_artist=True, widths=0.6)
         for patch, m in zip(bp["boxes"], order):
             ctrl = bool(sub[sub["method"] == m]["is_control"].iloc[0])
             patch.set_facecolor("lightgrey" if ctrl else "tab:green")

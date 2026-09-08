@@ -30,7 +30,7 @@ DOCKER_RUN = docker run --rm -e SCALE=$(SCALE) -e PYTHONHASHSEED=0 \
 
 EXPERIMENTS = exp00_tuning exp01_landscape exp02_baselines exp03_cvproxy \
               exp04_meta exp05_budget exp06_ensemble exp07_kradii \
-              exp08_hetero exp09_cycles exp10_cholesky
+              exp08_hetero exp09_cycles exp10_cholesky exp11_smoother
 
 .PHONY: build test smoke quick paper all tables findings notebook shell clean \
         help logs shards merge shard-status shard-clean overnight $(EXPERIMENTS)
@@ -71,6 +71,7 @@ exp07: exp07_kradii
 exp08: exp08_hetero
 exp09: exp09_cycles
 exp10: exp10_cholesky
+exp11: exp11_smoother
 
 # EXP-00 writes results/frozen_params.json, which the others read. When
 # sharding, run it once on its own first so every shard sees the same
@@ -83,7 +84,7 @@ shards: build
 		docker run -d --name cvl-shard$$i \
 			-e SCALE=$(SCALE) -e SHARD_INDEX=$$i -e SHARD_COUNT=$(N) \
 			-e METHODS="$(METHODS)" \
-			-e EXPERIMENTS="$(if $(EXPERIMENTS_SEL),$(EXPERIMENTS_SEL),exp01_landscape exp02_baselines exp03_cvproxy exp04_meta exp05_budget exp06_ensemble exp07_kradii exp08_hetero exp09_cycles exp10_cholesky)" \
+			-e EXPERIMENTS="$(if $(EXPERIMENTS_SEL),$(EXPERIMENTS_SEL),exp01_landscape exp02_baselines exp03_cvproxy exp04_meta exp05_budget exp06_ensemble exp07_kradii exp08_hetero exp09_cycles exp10_cholesky exp11_smoother)" \
 			-e PYTHONHASHSEED=0 -e OMP_NUM_THREADS=1 \
 			-v $(PWD)/results:/work/results $(IMAGE) \
 			bash /work/scripts/run_all.sh ; \

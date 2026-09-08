@@ -3,13 +3,18 @@
 #
 #   bash scripts/run_all.sh              # scale from $SCALE, default smoke
 #   bash scripts/run_all.sh paper
-#   EXPERIMENTS="exp07_kradii exp10_cholesky" bash scripts/run_all.sh quick
+#   EXPERIMENTS="exp07_kradii exp11_smoother" bash scripts/run_all.sh quick
 #   SHARD_INDEX=1 SHARD_COUNT=4 bash scripts/run_all.sh paper
 #
 # Experiments are independent: each writes to its own directory and a failure
 # in one does not stop the others. The exit code is non-zero if any failed, so
 # a CI job or a cluster wrapper still notices.
 set -u
+# Without pipefail, "python3 script.py | tee log" reports tee's exit status,
+# so a crashed experiment is announced as a success and the run continues as
+# if nothing happened. That is exactly how a matplotlib incompatibility got
+# reported as "ok" while its figures and tables were silently missing.
+set -o pipefail
 
 SCALE="${1:-${SCALE:-smoke}}"
 export SCALE
@@ -31,7 +36,8 @@ exp06_ensemble \
 exp07_kradii \
 exp08_hetero \
 exp09_cycles \
-exp10_cholesky"
+exp10_cholesky \
+exp11_smoother"
 
 SELECTED="${EXPERIMENTS:-$DEFAULT_EXPERIMENTS}"
 

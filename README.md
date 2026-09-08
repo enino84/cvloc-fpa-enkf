@@ -82,6 +82,7 @@ traced to the run that produced it.
 | `EXP-08-HETERO` | Where grid points are *not* exchangeable, does a spatially varying radius pay? | the positive counterpart |
 | `EXP-09-CYCLES` | Over consecutive cycles with a moving network, how must the per-cycle estimate be combined? | **the headline result** |
 | `EXP-10-CHOLESKY` | On a discrete, multimodal landscape, does the choice of search matter? | the comparison that discriminates |
+| `EXP-11-SMOOTHER` | A criterion that every radius can reach: augmented state `(k-1, k)`, scored on observations the analysis never assimilated | **the criterion that works where holding out does not** |
 
 ## The result the suite is built around
 
@@ -110,6 +111,38 @@ relative to the run. At `smoke` the runs are 20 cycles and an `ewma` with
 alpha = 0.05 needs about that many just to reach its target, so the ordering
 among smoothing variants there is meaningless. Use `quick` (100 cycles) or
 `paper` (300) to compare them.
+
+## Why holding observations out is not enough
+
+The criterion used by `EXP-01` through `EXP-09` withholds part of the network
+and scores the analysis against what it withheld. That construction has a
+defect which is structural rather than a matter of tuning: the analysis at a
+held-out location depends only on the radius **at that location**, so when the
+network is sparse the radii of unobserved points do not enter the objective at
+all.
+
+Measured directly in this suite, with half of forty points observed: moving the
+twenty radii of unobserved points from 3 to 15 left the objective unchanged to
+eight decimal places, while the true error went from 1.97 to 3.65. Half the
+parameters were invisible to the criterion. That alone explains why every
+spatially varying parameterization loses in `EXP-02`, `EXP-07` and `EXP-08`,
+without needing an argument about search or about exchangeability.
+
+Two other routes were measured and rejected. Scoring against the full network
+is circular: a short radius makes each point fit its own observation and the
+objective falls monotonically to the left edge of the box. Scoring a forecast
+against the next cycle's observations would work, but at cycle `k` those
+observations do not exist yet.
+
+`EXP-11` takes a different route. The state is the pair `(k-1, k)`; the
+modified Cholesky factorization is estimated on the joint vector, so its
+cross-block couples every component of `k-1` to the components of `k`; only the
+observations of `k-1` are assimilated; and the radius is scored on the `k`
+block against the observations of `k`, which that analysis never saw. Nothing
+is withheld, the whole network is used, no future data is needed, and every
+radius reaches the block where the score is taken. Switching the temporal
+predecessors off flattens the criterion completely, which is the direct
+evidence that the cross-block is what carries the signal.
 
 ## The regimes
 

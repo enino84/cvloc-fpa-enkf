@@ -36,6 +36,7 @@ ORDER = [
     ("EXP-03-CVPROXY", "cvproxy.tex", "Is CV a good proxy for the truth?"),
     ("EXP-06-ENSEMBLE", "ensemble.tex", "Dependence on ensemble size"),
     ("EXP-07-KRADII", "kradii.tex", "How many radii should be estimated?"),
+    ("EXP-11-SMOOTHER", "smoother.tex", "Augmented smoother criterion"),
     ("EXP-09-CYCLES", "cycles.tex", "Consecutive cycles, moving network"),
     ("EXP-08-HETERO", "hetero.tex", "Heterogeneous domains"),
     ("EXP-04-META", "metaheuristics.tex", "Comparison of searches, tapered"),
@@ -147,6 +148,17 @@ def build_findings(scale):
                 f"minima on average, so it is not unimodal",
                 f"- penalty of the CV choice here: "
                 f"{fmt(summ.get('mean_penalty_pct'), 1)}%",
+            ]
+        elif exp_id == "EXP-11-SMOOTHER" and summ:
+            lines += [
+                f"- criterion penalty: mean "
+                f"**{fmt(summ.get('mean_penalty'), 1)}%**, median "
+                f"{fmt(summ.get('median_penalty'), 1)}%",
+                f"- exact agreement with the truth-based arg-min: "
+                f"{fmt(100*float(summ.get('exact_rate', 0)), 0)}% of cycles",
+                "  - *nothing is withheld here and the whole network is used; "
+                "the score is taken on the k block against observations the "
+                "analysis never assimilated.*",
             ]
         elif exp_id == "EXP-09-CYCLES" and summ:
             lines.append(f"- {summ.get('n_failed', 0)} of "

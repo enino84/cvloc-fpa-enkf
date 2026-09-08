@@ -15,7 +15,7 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from . import features, persist, progress, taper
+from . import features, persist, progress, smoother, taper
 from .analysis_cv_letkf import AnalysisLETKFCrossValidated
 from .cholesky import CholeskyPrecision, CholeskySpace
 from .cycles import (CycleConfig, cv_sweep, make_cycle, make_cycles,
@@ -27,6 +27,8 @@ from .model import Lorenz96CV, forcing_profile, observation_network
 from .objective import BudgetExhausted, CVObjective, TruthObjective, make_folds
 from .persist import (SnapshotWriter, load_snapshots, per_cycle_frame,
                       rebuild_covariances)
+from .smoother import (AugmentedSmoother, augmented_precision,
+                       augmented_predecessors, ridge_solve)
 from .parameterization import BOXES, Blocks, Clusters, PerVariable, Uniform, box
 from .parameterization import make as make_parameterization
 from .taper import (cyclic_distance, gaspari_cohn, obs_distance, predecessors,
@@ -43,6 +45,8 @@ __all__ = [
     "forcing_profile", "gaspari_cohn", "get_optimizer", "make_cycle",
     "make_cycles", "make_folds", "make_parameterization", "obs_distance",
     "observation_network", "predecessors", "progress", "select_radius",
+    "AugmentedSmoother", "augmented_precision", "augmented_predecessors",
+    "ridge_solve", "smoother",
     "SnapshotWriter", "load_snapshots", "per_cycle_frame", "persist",
     "rebuild_covariances",
     "select_radius_bagged", "taper", "taper_matrix", "taper_weights", "truth_optimum",

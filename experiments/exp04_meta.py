@@ -40,6 +40,26 @@ DESCRIPTION = ("Head-to-head between searches at equal budget on the tapered "
                "parameterization, with random, grid and local-search controls.")
 
 
+def _boxplot(ax, data, labels, **kw):
+    """Horizontal boxplot that works across matplotlib versions.
+
+    ``labels`` was renamed to ``tick_labels`` in matplotlib 3.9 and removed
+    outright afterwards, and ``vert`` is on the same path. Passing the old
+    names raises a TypeError on a current install, which is how this surfaced:
+    the figure crashed at the end of a run whose data had already been saved.
+    """
+    try:
+        return ax.boxplot(data, tick_labels=labels, orientation="horizontal",
+                          **kw)
+    except TypeError:
+        pass
+    try:
+        return ax.boxplot(data, tick_labels=labels, vert=False, **kw)
+    except TypeError:
+        return ax.boxplot(data, labels=labels, vert=False, **kw)
+
+
+
 def main(scale_name=None):
     scale = get_scale(scale_name)
     plt = setup_matplotlib()
@@ -115,8 +135,7 @@ def main(scale_name=None):
         order = (sub.groupby("method")["J_gap_pct"].mean()
                  .sort_values().index.tolist())
         data = [sub[sub["method"] == m]["J_gap_pct"].values for m in order]
-        bp = ax.boxplot(data, labels=order, vert=False, patch_artist=True,
-                        widths=0.6)
+        bp = _boxplot(ax, data, order, patch_artist=True, widths=0.6)
         for patch, m in zip(bp["boxes"], order):
             is_ctrl = bool(sub[sub["method"] == m]["is_control"].iloc[0])
             patch.set_facecolor("lightgrey" if is_ctrl else "tab:blue")
